@@ -72,7 +72,7 @@ const SB_URL='https://gbqchrrupcwzxbutbmbd.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdicWNocnJ1cGN3enhidXRibWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MzY4NzYsImV4cCI6MjEwODAxMjg3Nn0.-wMcO94AU7wkKBjsXY6_qnwWd4ez2OfNPs4IyQW74Ww';/* ضع مفتاح anon public أو Publishable بين علامتي الاقتباس */
 const CLOUD=!!(SB_URL&&SB_KEY);
 if(!S.cid){S.cid='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);save()}
-async function sb(p,o={}){const r=await fetch(SB_URL+'/rest/v1/'+p,{...o,headers:{apikey:SB_KEY,...(SB_KEY.startsWith('eyJ')?{Authorization:'Bearer '+SB_KEY}:{}),'Content-Type':'application/json',...(o.headers||{})}});if(!r.ok)throw new Error(r.status);return r.status===204?null:r.json()}
+async function sb(p,o={}){const r=await fetch(SB_URL+'/rest/v1/'+p,{...o,headers:{apikey:SB_KEY,...(SB_KEY.startsWith('eyJ')?{Authorization:'Bearer '+SB_KEY}:{}),'Content-Type':'application/json',...(o.headers||{})}});if(!r.ok)throw new Error(r.status);const t=await r.text();return t?JSON.parse(t):null}
 const cloudPush=b=>CLOUD&&sb('bookings',{method:'POST',body:JSON.stringify({...b,cid:S.cid})}).catch(e=>toast('تعذّر الاتصال ('+e.message+')'));
 const cloudSt=(id,st)=>CLOUD&&sb('bookings?id=eq.'+id,{method:'PATCH',body:JSON.stringify({st})}).catch(()=>{});
 let syncing=0;
@@ -146,7 +146,9 @@ function sendR(id){const b=S.bk.find(x=>x.id===id);b.rt=RT;(S.rv[b.pid]=S.rv[b.p
 function favs(){const l=P.filter(p=>S.fav.includes(p.id));return `<h1>❤️ المفضلة</h1><div style="margin-top:14px">${l.length?l.map(pc).join(''):'<div class="card mut" style="text-align:center">لم تضف أي حرفي بعد. اضغط 🤍 على أي حرفي لحفظه هنا.</div>'}</div>`}
 function me(){return `<h1>👤 حسابي</h1><div class="card" style="margin-top:14px"><label>الاسم</label><input class="in" id="mn" value="${esc(S.name)}"><label>الهاتف</label><input class="in" id="mp" type="tel" inputmode="tel" value="${esc(S.phone)}"><label>العنوان</label><input class="in" id="ma" value="${esc(S.addr)}"><button class="btn" onclick="S.name=$('mn').value.trim();S.phone=$('mp').value.trim();S.addr=$('ma').value.trim();save();toast('تم الحفظ')">حفظ</button></div>
 <div class="card"><div class="li"><span>🌐 Langue · اللغة · Language</span></div><div class="chips">${[['ar','العربية'],['fr','Français'],['en','English']].map(c=>`<span class="chip ${LANG===c[0]?'on':''}" onclick="setLang('${c[0]}')">${c[1]}</span>`).join('')}</div><div class="li"><span>🌓 المظهر</span><button class="btn s sm" onclick="tog()">تبديل</button></div><div class="li"><span>🛠️ هل أنت حرفي؟</span><button class="btn sm" onclick="join()">انضم إلينا</button></div><div class="li"><span>🧰 وضع الحرفي (تجريبي)</span><button class="btn sm" onclick="pmode()">فتح</button></div><div class="li"><span>🗑️ مسح كل البيانات</span><button class="btn sm d" onclick="if(confirm(tr('سيتم حذف حسابك وحجوزاتك. متابعة؟'))){try{localStorage.removeItem('harfi')}catch(e){}location.hash='#/';location.reload()}">مسح</button></div></div><p class="mut" style="text-align:center">حرفي · الإصدار 1.1</p>`}
-function join(){sheet(`<h2 style="margin-top:0">انضم كحرفي</h2><label>الاسم</label><input class="in" id="jn"><label>الحرفة</label><select class="in" id="jc">${CATS.map(c=>`<option>${c[2]} ${c[1]}</option>`).join('')}</select><label>الهاتف</label><input class="in" id="jp" type="tel" inputmode="tel"><button class="btn" onclick="if($('jn').value.trim()&&$('jp').value.trim().length>=8){S.join={n:$('jn').value,c:$('jc').value,p:$('jp').value};save();closeS();toast('تم تسجيل طلبك، سنتواصل معك')}else toast('أكمل الحقول')">إرسال الطلب</button>`)}
+async function joinSend(){const n=$('jn').value.trim(),c=$('jc').value,ph=$('jp').value.trim();if(!n||ph.length<8){toast('أكمل الحقول');return}S.join={n,c,p:ph};save();closeS();if(!CLOUD){toast('تم تسجيل طلبك، سنتواصل معك');return}try{await sb('join_requests',{method:'POST',body:JSON.stringify({id:Date.now(),n,c,ph,cr:Date.now()})});toast('تم إرسال طلبك، سنتواصل معك')}catch(e){toast('تعذّر الإرسال ('+e.message+')')}}
+async function loadProv(){if(!CLOUD)return;try{const rows=await sb('providers?select=*');let ch=0;rows.forEach(r=>{if(!PI[r.id]&&CI[r.c]){const p={id:r.id,n:r.n,c:r.c,r:+r.r,j:r.j,p:r.p,y:r.y,v:r.v,b:r.b,ph:r.ph,s:r.s};P.push(p);PI[p.id]=p;ch=1}});if(ch)route()}catch(e){}}
+function join(){sheet(`<h2 style="margin-top:0">انضم كحرفي</h2><label>الاسم</label><input class="in" id="jn"><label>الحرفة</label><select class="in" id="jc">${CATS.map(c=>`<option value="${c[0]}">${c[2]} ${c[1]}</option>`).join('')}</select><label>الهاتف</label><input class="in" id="jp" type="tel" inputmode="tel"><button class="btn" onclick="joinSend()">إرسال الطلب</button>`)}
 /* ===== i18n + provider dashboard ===== */
 let LANG=S.lang||'ar';
 const LOC=()=>({ar:'ar-DZ',fr:'fr-FR',en:'en-GB'}[LANG]),ba=()=>LANG==='ar'?'→':'←';
@@ -219,7 +221,7 @@ $('nav').style.display=sub?'none':'flex';
 $('nav').innerHTML=`<div>${[['','🏠','الرئيسية'],['orders','📋','حجوزاتي'],['fav','❤️','المفضلة'],['me','👤','حسابي']].map(t=>`<a href="#/${t[0]}" class="${(a||'')===t[0]||(t[0]===''&&a==='c')?'on':''}"><span>${t[1]}</span>${t[2]}</a>`).join('')}</div>`;
 }
 addEventListener('hashchange',()=>{route();scrollTo(0,0)});
-route();initLang();sync();
+route();initLang();sync();loadProv();setInterval(loadProv,60000);
 setTimeout(()=>{const l=$('ld');l.classList.add('h');setTimeout(()=>l.remove(),500)},1300);
 </script>
 </body>
