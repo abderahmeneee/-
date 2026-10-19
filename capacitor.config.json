@@ -1,0 +1,10 @@
+{
+  "appId": "com.harfi.app",
+  "appName": "حرفي",
+  "webDir": "www",
+  "backgroundColor": "#4f46e5",
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 1500, "launchAutoHide": true, "backgroundColor": "#4f46e5", "showSpinner": false },
+    "StatusBar": { "overlaysWebView": false, "backgroundColor": "#4f46e5", "style": "DARK" }
+  }
+}
