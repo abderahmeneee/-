@@ -53,9 +53,11 @@ h1{font-size:23px;font-weight:800;line-height:1.35}h2{font-size:18px;font-weight
 .toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:11px 18px;border-radius:14px;font-weight:700;z-index:20;max-width:90%}
 label{font-size:13px;color:var(--mut);font-weight:700}
 .back{background:var(--card);border:1px solid var(--line);border-radius:12px;width:40px;height:40px;font-size:18px;cursor:pointer;color:var(--tx)}
+#ld{position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}#ld.h{opacity:0;pointer-events:none}#ld svg{width:96px;height:96px;animation:ldp 1.2s ease-in-out infinite}#ld b{color:#fff;font:800 34px Tajawal,sans-serif}#ld i{width:32px;height:32px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:lds .8s linear infinite}@keyframes lds{to{transform:rotate(360deg)}}@keyframes ldp{50%{transform:scale(1.08)}}
 </style>
 </head>
 <body>
+<div id="ld"><svg viewBox="0 0 96 96"><mask id="wm"><rect width="96" height="96" fill="#fff"/><rect x="43" y="0" width="10" height="24" fill="#000"/></mask><g transform="rotate(45 48 48)" fill="#fff"><rect x="42" y="38" width="12" height="52" rx="6"/><circle cx="48" cy="26" r="20" mask="url(#wm)"/></g></svg><b>حرفي</b><i></i></div>
 <div id="app"></div>
 <nav class="nav" id="nav"></nav>
 <div id="ov"></div>
@@ -66,6 +68,14 @@ const f=n=>Math.round(n).toLocaleString('en-US');
 let S={name:'',phone:'',addr:'',fav:[],bk:[],rv:{},theme:''},q='',sort='r',ot='up';
 try{Object.assign(S,JSON.parse(localStorage.getItem('harfi')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('harfi',JSON.stringify(S))}catch(e){}};
+const SB_URL='https://gbqchrrupcwzxbutbmbd.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdicWNocnJ1cGN3enhidXRibWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MzY4NzYsImV4cCI6MjEwODAxMjg3Nn0.-';const CLOUD=!!(SB_URL&&SB_KEY);
+if(!S.cid){S.cid='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);save()}
+async function sb(p,o={}){const r=await fetch(SB_URL+'/rest/v1/'+p,{...o,headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',...(o.headers||{})}});if(!r.ok)throw new Error(r.status);return r.status===204?null:r.json()}
+const cloudPush=b=>CLOUD&&sb('bookings',{method:'POST',body:JSON.stringify({...b,cid:S.cid})}).catch(()=>toast('تعذّر الاتصال بالخادم'));
+const cloudSt=(id,st)=>CLOUD&&sb('bookings?id=eq.'+id,{method:'PATCH',body:JSON.stringify({st})}).catch(()=>{});
+let syncing=0;
+async function sync(){if(!CLOUD||syncing)return;syncing=1;try{const rows=await sb('bookings?'+(S.pm?'pid=eq.'+S.pm:'cid=eq.'+S.cid)+'&order=c.desc&limit=200');let ch=0;rows.forEach(r=>{const i=S.bk.findIndex(x=>x.id==r.id);if(i<0){S.bk.push(r);ch=1}else if(S.bk[i].st!==r.st){S.bk[i].st=r.st;ch=1}});if(ch){S.bk.sort((a,b)=>b.c-a.c);save();const h=(location.hash||'#/').slice(2).split('/')[0];if(h==='orders'||h==='dash')route()}}catch(e){}syncing=0}
+setInterval(()=>{if(document.visibilityState==='visible')sync()},8000);
 if(S.theme)document.documentElement.dataset.theme=S.theme;
 const CATS=[['plumb','سباكة','🚰'],['elec','كهرباء','💡'],['clean','تنظيف','🧼'],['paint','دهان','🎨'],['wood','نجارة','🪚'],['ac','تكييف','❄️'],['weld','حدادة','🔩'],['furn','تركيب أثاث','🛋️'],['pest','مكافحة حشرات','🐜'],['move','نقل أثاث','🚚'],['garden','بستنة','🌿'],['appl','صيانة أجهزة','🔧']];
 const CI=Object.fromEntries(CATS.map(c=>[c[0],c]));
@@ -123,11 +133,11 @@ return `<div class="row"><button class="back" onclick="history.back()">${ba()}</
 <div class="card"><div class="li"><span>${esc(sv.t)}</span><b>${f(sv.p)} دج</b></div>${disc?`<div class="li"><span>خصم أول حجز 10%</span><b style="color:var(--ok)">−${f(sv.p*disc)} دج</b></div>`:''}<div class="li"><b>الإجمالي التقديري</b><b style="color:var(--p);font-size:18px">${f(tot)} دج</b></div></div>
 <div class="cta"><div><button class="btn" onclick="confirmB()">تأكيد الحجز</button></div></div>`}
 function confirmB(){const a=$('ba').value.trim(),ph=$('bp').value.trim(),p=PI[B.pid];if(!a||ph.length<8){toast('أدخل العنوان ورقم هاتف صحيحاً');return}
-S.addr=a;S.phone=ph;const sv=p.s[B.s];S.bk.unshift({id:Date.now(),pid:p.id,svc:sv.t,price:sv.p*(S.bk.length?1:.9),d:B.d,t:B.t,a,ph,n:$('bn').value.trim(),st:'pending',c:Date.now()});save();B={};toast('✅ تم إرسال طلب الحجز');location.hash='#/orders'}
-function orders(){const now=Date.now();S.bk.forEach(b=>{if(b.st==='pending'&&now-b.c>30000&&!S.pmu)b.st='conf'});save();
+S.addr=a;S.phone=ph;const sv=p.s[B.s];const nb={id:Date.now(),pid:p.id,svc:sv.t,price:sv.p*(S.bk.length?1:.9),d:B.d,t:B.t,a,ph,n:$('bn').value.trim(),st:'pending',c:Date.now()};S.bk.unshift(nb);save();cloudPush(nb);B={};toast('✅ تم إرسال طلب الحجز');location.hash='#/orders'}
+function orders(){const now=Date.now();S.bk.forEach(b=>{if(b.st==='pending'&&now-b.c>30000&&!S.pmu&&!CLOUD)b.st='conf'});save();
 const L=S.bk.filter(b=>ot==='up'?['pending','conf'].includes(b.st):['done','canc'].includes(b.st));
 return `<h1>📋 حجوزاتي</h1><div class="chips" style="margin-top:12px"><span class="chip ${ot==='up'?'on':''}" onclick="ot='up';route()">القادمة</span><span class="chip ${ot==='pa'?'on':''}" onclick="ot='pa';route()">السابقة</span></div>`+(L.length?L.map(b=>{const p=PI[b.pid];return `<div class="card"><div class="row sp"><b>${esc(b.svc)}</b><span class="pill ${ST[b.st][1]}">${ST[b.st][0]}</span></div><div class="mut" style="margin:6px 0">${CI[p.c][2]} ${esc(p.n)} · ${b.d} · ${b.t}<br>📍 ${esc(b.a)}</div><b style="color:var(--p)">${f(b.price)} دج</b><div class="row" style="margin-top:10px;flex-wrap:wrap">${b.st==='conf'?`<button class="btn sm" onclick="setB(${b.id},'done')">تم إنجاز العمل</button>`:''}${['pending','conf'].includes(b.st)?`<button class="btn sm d" onclick="setB(${b.id},'canc')">إلغاء</button>`:''}${b.st==='done'&&!b.rt?`<button class="btn sm" onclick="rate(${b.id})">⭐ قيّم الحرفي</button>`:''}${b.rt?`<span class="star">${stars(b.rt)}</span>`:''}</div></div>`}).join(''):`<div class="card mut" style="text-align:center">لا توجد حجوزات هنا.<br><a href="#/" style="color:var(--p);font-weight:800">تصفّح الخدمات</a></div>`)}
-function setB(id,st){if(st==='canc'&&!confirm(tr('هل تريد إلغاء هذا الحجز؟')))return;const b=S.bk.find(x=>x.id===id);b.st=st;save();route();if(st==='done')rate(id)}
+function setB(id,st){if(st==='canc'&&!confirm(tr('هل تريد إلغاء هذا الحجز؟')))return;const b=S.bk.find(x=>x.id===id);b.st=st;save();cloudSt(id,st);route();if(st==='done')rate(id)}
 let RT=5;
 function rate(id){RT=5;sheet(`<h2 style="margin-top:0">قيّم تجربتك</h2><div class="chips" id="rs">${[1,2,3,4,5].map(i=>`<span class="chip ${i<=5?'on':''}" onclick="RT=${i};[...$('rs').children].forEach((c,j)=>c.classList.toggle('on',j<${i}))">${i} ★</span>`).join('')}</div><input class="in" id="rc" placeholder="اكتب رأيك (اختياري)"><button class="btn" onclick="sendR(${id})">إرسال</button>`)}
 function sendR(id){const b=S.bk.find(x=>x.id===id);b.rt=RT;(S.rv[b.pid]=S.rv[b.pid]||[]).push({s:RT,c:$('rc').value.trim()});save();closeS();route();toast('شكراً لتقييمك')}
@@ -199,7 +209,7 @@ return `<div class="row sp"><button class="back" onclick="S.pm=0;save();location
 <div class="card row sp" style="margin-top:12px"><b>متاح لاستقبال الطلبات</b><button class="btn sm ${av?'':'s'}" onclick="S.av=S.av||{};S.av[${id}]=${!av};save();route()">${av?'مفعّل':'متوقف'}</button></div>
 <div class="grid" style="grid-template-columns:repeat(3,1fr)"><div class="cat"><span>${L.filter(b=>b.st==='pending').length}</span>طلب جديد</div><div class="cat"><span>${L.filter(b=>b.st==='conf').length}</span>مؤكد</div><div class="cat"><span>${f(earn)}</span>الأرباح المتوقعة (دج)</div></div>
 <h2>الطلبات الواردة</h2>`+(L.length?L.map(b=>`<div class="card"><div class="row sp"><b>${esc(b.svc)}</b><span class="pill ${ST[b.st][1]}">${ST[b.st][0]}</span></div><div class="mut" style="margin:6px 0">${b.d} · ${b.t}<br>📍 ${esc(b.a)}<br>📞 ${esc(b.ph)}${b.n?'<br>📝 '+esc(b.n):''}</div><b style="color:var(--p)">${f(b.price)} دج</b><div class="row" style="margin-top:10px">${b.st==='pending'?`<button class="btn sm" onclick="pst(${b.id},'conf')">قبول</button><button class="btn sm d" onclick="pst(${b.id},'canc')">رفض</button>`:''}${b.st==='conf'?`<button class="btn sm" onclick="pst(${b.id},'done')">تم إنجاز العمل</button>`:''}</div></div>`).join(''):'<div class="card mut" style="text-align:center">لا توجد طلبات واردة بعد. جرّب إنشاء حجز من وضع العميل.</div>')}
-function pst(id,st){S.bk.find(x=>x.id===id).st=st;save();route();toast(st==='conf'?'تم قبول الطلب':st==='canc'?'تم رفض الطلب':'تم تسجيل إنجاز العمل')}
+function pst(id,st){S.bk.find(x=>x.id===id).st=st;save();cloudSt(id,st);route();toast(st==='conf'?'تم قبول الطلب':st==='canc'?'تم رفض الطلب':'تم تسجيل إنجاز العمل')}
 function pmode(){sheet(`<h2 style="margin-top:0">وضع الحرفي (تجريبي)</h2><p class="mut" style="margin-bottom:8px">اختر الحرفي الذي تريد تجربة لوحته. تظهر هنا الحجوزات المسجلة على هذا الجهاز.</p><select class="in" id="pmx">${P.map(p=>`<option value="${p.id}">${CI[p.c][2]} ${esc(p.n)}</option>`).join('')}</select><button class="btn" onclick="S.pm=+$('pmx').value;S.pmu=1;save();closeS();location.hash='#/dash'">فتح لوحة الحرفي</button>`)}
 function route(){const[a,b]=(location.hash||'#/').slice(2).split('/'),pg={c:()=>cat(b),p:()=>prof(+b),b:()=>book(+b),orders,fav:favs,me,dash}[a]||home;
 $('app').innerHTML=pg();const sub=a==='p'||a==='b'||a==='dash';
@@ -207,7 +217,8 @@ $('nav').style.display=sub?'none':'flex';
 $('nav').innerHTML=`<div>${[['','🏠','الرئيسية'],['orders','📋','حجوزاتي'],['fav','❤️','المفضلة'],['me','👤','حسابي']].map(t=>`<a href="#/${t[0]}" class="${(a||'')===t[0]||(t[0]===''&&a==='c')?'on':''}"><span>${t[1]}</span>${t[2]}</a>`).join('')}</div>`;
 }
 addEventListener('hashchange',()=>{route();scrollTo(0,0)});
-route();initLang();
+route();initLang();sync();
+setTimeout(()=>{const l=$('ld');l.classList.add('h');setTimeout(()=>l.remove(),500)},1300);
 </script>
 </body>
 </html>
